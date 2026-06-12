@@ -451,20 +451,34 @@ voice_assistant:
   # When the voice assistant starts: Play a wake up sound, duck audio.
   on_start:
     - remote_wake_word.stop:
-    # Remember the current music volume. Duck the music FIRST, THEN raise the
-    # speaker to the "Assistant Voice Volume". Order matters: raising the master
-    # volume before ducking causes a brief spike where the music jumps loud
-    # before the duck lands. Ducking first attenuates the music stream so the
-    # subsequent volume raise can't make it spike.
-    - lambda: 'id(saved_media_volume) = id(external_media_player)->volume;'
+    # Capture the user's music volume ONCE per interaction. The flag guard stops a
+    # re-entrant on_start (continued conversation / pipeline restart) from saving
+    # the already-raised voice volume and later restoring the music too loud.
+    - if:
+        condition:
+          lambda: 'return !id(voice_volume_active);'
+        then:
+          - lambda: 'id(saved_media_volume) = id(external_media_player)->volume;'
+          - lambda: 'id(voice_volume_active) = true;'
+    # Duck the music immediately on wake.
     - mixer_speaker.apply_ducking:
         id: media_mixing_input
         decibel_reduction: !lambda 'return (uint8_t) id(music_ducking_db).state;'  # from the Music Ducking slider
-        duration: 0.0s         # The duration of the transition (default is no transition)
-    - media_player.volume_set:
-        id: external_media_player
-        volume: !lambda 'return id(assistant_voice_volume).state / 100.0;'
+        duration: 0.0s
     - micro_wake_word.disable_model: ${wake_word_name}
+    # Let the duck propagate through the mixer/speaker buffers BEFORE raising the
+    # master (DAC) volume. volume_set is instant but ducking is buffered (~100-200ms);
+    # raising first makes the music briefly play loud and un-ducked — the wake "pop".
+    - delay: 350ms
+    # Only raise if the interaction is still active (a very fast turn could have
+    # already ended and restored the volume during the delay above).
+    - if:
+        condition:
+          lambda: 'return id(voice_volume_active);'
+        then:
+          - media_player.volume_set:
+              id: external_media_player
+              volume: !lambda 'return id(assistant_voice_volume).state / 100.0;'
   on_listening:
     - if:
         condition:
@@ -532,10 +546,12 @@ voice_assistant:
         else:
           - lambda: id(push_to_intercom_active) = false;
     - lambda: id(openwakeword_wake_detected) = false;
-    # Restore the user's music volume now that the spoken reply is done.
+    # Restore the user's music volume now that the spoken reply is done, and clear
+    # the guard so the next interaction captures a fresh music volume.
     - media_player.volume_set:
         id: external_media_player
         volume: !lambda 'return id(saved_media_volume);'
+    - lambda: 'id(voice_volume_active) = false;'
     # Stop ducking audio.
     - mixer_speaker.apply_ducking:
         id: media_mixing_input

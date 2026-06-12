@@ -78,3 +78,10 @@ globals:
     type: float
     restore_value: no
     initial_value: '0.6'
+  # True while the assistant has raised the speaker to the voice volume. Prevents
+  # a re-entrant on_start (continued conversation / pipeline restart) from
+  # capturing the already-raised volume and restoring the music too loud.
+  - id: voice_volume_active
+    type: bool
+    restore_value: no
+    initial_value: 'false'
