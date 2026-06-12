@@ -132,7 +132,7 @@ media_player:
         - http_media_source
     volume_increment: 0.05
     volume_min: 0.4
-    volume_max: 0.85
+    volume_max: 1.0
     on_mute:
       - script.execute: control_leds
     on_unmute:
@@ -142,7 +142,7 @@ media_player:
     on_announcement:
       - mixer_speaker.apply_ducking:
           id: media_mixing_input
-          decibel_reduction: 20
+          decibel_reduction: !lambda 'return (uint8_t) id(music_ducking_db).state;'
           duration: 0.0s
     on_state:
       if:
@@ -158,3 +158,37 @@ media_player:
               id: media_mixing_input
               decibel_reduction: 0
               duration: 1.0s
+
+# User-adjustable audio sliders, exposed to Home Assistant as number entities.
+# Both restore across reboots and are read live by the firmware, so they can be
+# tuned from the device page without reflashing.
+number:
+  # How loud the assistant's spoken reply is, independent of the music volume.
+  # On a voice turn the speaker is briefly raised to this level, then restored.
+  - platform: template
+    id: assistant_voice_volume
+    name: "Assistant Voice Volume"
+    icon: mdi:account-voice
+    entity_category: config
+    unit_of_measurement: "%"
+    min_value: 0
+    max_value: 100
+    step: 5
+    optimistic: true
+    restore_value: true
+    initial_value: 85
+
+  # How much quieter the music gets while the assistant is listening/replying.
+  # Higher = music more suppressed. 0 = no ducking.
+  - platform: template
+    id: music_ducking_db
+    name: "Music Ducking"
+    icon: mdi:volume-minus
+    entity_category: config
+    unit_of_measurement: "dB"
+    min_value: 0
+    max_value: 40
+    step: 1
+    optimistic: true
+    restore_value: true
+    initial_value: 20

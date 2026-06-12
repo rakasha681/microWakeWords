@@ -451,9 +451,15 @@ voice_assistant:
   # When the voice assistant starts: Play a wake up sound, duck audio.
   on_start:
     - remote_wake_word.stop:
+    # Remember the current music volume, then raise the speaker to the
+    # "Assistant Voice Volume" so the spoken reply is clearly audible.
+    - lambda: 'id(saved_media_volume) = id(external_media_player)->volume;'
+    - media_player.volume_set:
+        id: external_media_player
+        volume: !lambda 'return id(assistant_voice_volume).state / 100.0;'
     - mixer_speaker.apply_ducking:
         id: media_mixing_input
-        decibel_reduction: 20  # Number of dB quieter; higher implies more quiet, 0 implies full volume
+        decibel_reduction: !lambda 'return (uint8_t) id(music_ducking_db).state;'  # from the Music Ducking slider
         duration: 0.0s         # The duration of the transition (default is no transition)
     - micro_wake_word.disable_model: ${wake_word_name}
   on_listening:
@@ -523,6 +529,10 @@ voice_assistant:
         else:
           - lambda: id(push_to_intercom_active) = false;
     - lambda: id(openwakeword_wake_detected) = false;
+    # Restore the user's music volume now that the spoken reply is done.
+    - media_player.volume_set:
+        id: external_media_player
+        volume: !lambda 'return id(saved_media_volume);'
     # Stop ducking audio.
     - mixer_speaker.apply_ducking:
         id: media_mixing_input

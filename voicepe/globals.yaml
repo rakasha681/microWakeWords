@@ -72,3 +72,9 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  # Stores the user's media/music volume so it can be restored after the assistant
+  # temporarily raises the speaker to the "Assistant Voice Volume" for its spoken reply.
+  - id: saved_media_volume
+    type: float
+    restore_value: no
+    initial_value: '0.6'

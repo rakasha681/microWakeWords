@@ -47,7 +47,7 @@ substitutions:
 
 packages:
   TaterTotterson.VoicePE:
-    url: https://github.com/TaterTotterson/microWakeWords
+    url: https://github.com/rakasha681/microWakeWords
     ref: main
     files:
       - voicepe/device.yaml
